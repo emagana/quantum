@@ -62,7 +62,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         nospassword = cfg.CONF.PLUMgridNOS.password
         timeout = cfg.CONF.PLUMgridNOS.servertimeout
 
-        # validate config
+        # PLUMgrid NOS info validation
         LOG.info(_('QuantumPluginPLUMgrid PLUMgrid NOS: %s'), nosplumgrid)
         if not nosplumgrid:
             LOG.error(_('QuantumPluginPLUMgrid Status: NOS server is not '
@@ -72,23 +72,8 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
                     'PLUMgrid Plugin has started'))
 
     def create_network(self, context, network):
-        """Create a network, which represents an L2 network segment which
-        can have a set of subnets and ports associated with it.
-        :param context: quantum api request context
-        :param network: dictionary describing the network
-
-        :returns: a sequence of mappings with the following signature:
-        {
-            "id": UUID representing the network.
-            "name": Human-readable name identifying the network.
-            "tenant_id": Owner of network. NOTE: only admin user can specify
-                         a tenant_id other than its own.
-            "admin_state_up": Sets admin state of network.
-                              if down, network does not forward packets.
-            "status": Indicates whether network is currently operational
-                      (values are "ACTIVE", "DOWN", "BUILD", and "ERROR")
-            "subnets": Subnets associated with this network.
-        }
+        """
+        Create network core Quantum API
         """
 
         LOG.debug(_('QuantumPluginPLUMgrid Status: create_network() called'))
@@ -97,13 +82,14 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         tenant_id = self._get_tenant_id_for_create(context, network["network"])
         self.network_admin_state(network)
 
-        # create in DB
+        # Plugin DB - Network Create
         net = super(QuantumPluginPLUMgridV2, self).create_network(context,
-                                                                 net)
+                                                                 network)
         LOG.debug(_('QuantumPluginPLUMgrid Status: %s, %s, %s'),
-            tenant_id, net_name, net["id"])
+            tenant_id, network["network"], net["id"])
 
         # TODO: Create the PLUMgrid NOS REST API call
+        """
         data = {
             "network": {
                 "id": new_net["id"],
@@ -113,47 +99,29 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         headers = {}
         nos_url = 'NOS_URL'
         rest_connection.nos_rest_conn(nos_url, 'POST', data, headers)
+        """
         # return created network
         return net
 
     def update_network(self, context, net_id, network):
-        """Updates the properties of a particular Virtual Network.
-        :param context: quantum api request context
-        :param net_id: uuid of the network to update
-        :param network: dictionary describing the updates
-
-        :returns: a sequence of mappings with the following signature:
-        {
-            "id": UUID representing the network.
-            "name": Human-readable name identifying the network.
-            "tenant_id": Owner of network. NOTE: only admin user can
-                         specify a tenant_id other than its own.
-            "admin_state_up": Sets admin state of network.
-                              if down, network does not forward packets.
-            "status": Indicates whether network is currently operational
-                      (values are "ACTIVE", "DOWN", "BUILD", and "ERROR")
-            "subnets": Subnets associated with this network.
-        }
+        """
+        Update network core Quantum API
         """
 
         LOG.debug(_("QuantumPluginPLUMgridV2.update_network() called"))
         self.network_admin_state(network)
 
-        # update DB
-        net = super(QuantumPluginPLUMgridV2, self).update_network(
+        # Plugin DB - Network Update
+        network_updated = super(QuantumPluginPLUMgridV2, self).update_network(
             context, net_id, network)
 
         # TODO: Update network on network controller
-
         # return updated network
-        return net
+        return network_updated
 
     def delete_network(self, context, net_id):
-        """Delete a network.
-        :param context: quantum api request context
-        :param id: UUID representing the network to delete.
-
-        :returns: None
+        """
+        Delete network core Quantum API
         """
         LOG.debug(_("QuantumPluginPLUMgrid Status: delete_network() called"))
 
@@ -161,35 +129,19 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         net = super(QuantumPluginPLUMgridV2, self).get_network(context, net_id)
         tenant_id = net["tenant_id"]
 
-        # Delete Network from DB
-        super(QuantumPluginPLUMgridV2, self).delete_network(context,
-                                                                     net_id)
+        # Plugin DB - Network Delete
+        result_from_net_delete = super(QuantumPluginPLUMgridV2,
+            self).delete_network(context, net_id)
+
+        return result_from_net_delete
 
     def create_port(self, context, port):
-        """Create a port, which is a connection point of a device
-        (e.g., a VM NIC) to attach to a L2 Quantum network.
-        :param context: quantum api request context
-        :param port: dictionary describing the port
-
-        :returns:
-        {
-            "id": uuid represeting the port.
-            "network_id": uuid of network.
-            "tenant_id": tenant_id
-            "mac_address": mac address to use on this port.
-            "admin_state_up": Sets admin state of port. if down, port
-                              does not forward packets.
-            "status": dicates whether port is currently operational
-                      (limit values to "ACTIVE", "DOWN", "BUILD", and "ERROR")
-            "fixed_ips": list of subnet ID"s and IP addresses to be used on
-                         this port
-            "device_id": identifies the device (e.g., virtual server) using
-                         this port.
-        }
+        """
+        Create port core Quantum API
         """
         LOG.debug(_("QuantumPluginPLUMgrid Status: create_port() called"))
 
-        # Update DB
+        # Plugin DB - Port Create
         port["port"]["admin_state_up"] = False
         new_port = super(QuantumPluginPLUMgridV2, self).create_port(context,
             port)
@@ -199,30 +151,12 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         # Set port state up and return that port
         port_update = {"port": {"admin_state_up": True}}
         return super(QuantumPluginPLUMgridV2, self).update_port(context,
-                                                           new_port["id"],
-                                                           port_update)
+            new_port["id"], port_update)
 
     def update_port(self, context, port_id, port):
-        """Update values of a port.
-        :param context: quantum api request context
-        :param id: UUID representing the port to update.
-        :param port: dictionary with keys indicating fields to update.
+        """
+        Update port core Quantum API
 
-        :returns: a mapping sequence with the following signature:
-        {
-            "id": uuid represeting the port.
-            "network_id": uuid of network.
-            "tenant_id": tenant_id
-            "mac_address": mac address to use on this port.
-            "admin_state_up": sets admin state of port. if down, port
-                               does not forward packets.
-            "status": dicates whether port is currently operational
-                       (limit values to "ACTIVE", "DOWN", "BUILD", and "ERROR")
-            "fixed_ips": list of subnet ID's and IP addresses to be used on
-                         this port
-            "device_id": identifies the device (e.g., virtual server) using
-                         this port.
-        }
         """
         LOG.debug(_("QuantumPluginPLUMgrid Status: update_port() called"))
 
@@ -230,8 +164,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         orig_port = super(QuantumPluginPLUMgridV2, self).get_port(context,
             port_id)
         if orig_port:
-
-            # Update DB
+            # Plugin DB - Port Update
             new_port = super(QuantumPluginPLUMgridV2, self).update_port(
                 context, port_id, port)
         # TODO: Update port on PLUMgrid NOS
@@ -240,50 +173,21 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         return new_port
 
     def delete_port(self, context, port_id):
-        """Delete a port.
-        :param context: quantum api request context
-        :param id: UUID representing the port to delete.
-
-        :raises: exceptions.PortInUse
-        :raises: exceptions.PortNotFound
-        :raises: exceptions.NetworkNotFound
-        :raises: RemoteRestError
+        """
+        Delete port core Quantum API
         """
 
         LOG.debug(_("QuantumPluginPLUMgrid Status: delete_port() called"))
 
-        # Delete from DB
-        super(QuantumPluginPLUMgridV2, self).get_port(context, port_id)
+        # Plugin DB - Port Delete
+        super(QuantumPluginPLUMgridV2, self).delete_port(context, port_id)
 
         # TODO: Delete port from PLUMgrid NOS
 
-    def create_subnet(self, context, subnet):
-        """
-        Create a subnet, which represents a range of IP addresses
-        that can be allocated to devices.
-        """
-        LOG.debug(_("create_subnet() called"))
-        super(QuantumPluginPLUMgridV2, self).create_subnet(context, subnet)
-        # TODO: Create subnet in PLUMgrid NOS
-
-    def update_subnet(self, context, id, subnet):
-        """
-        Updates the state of a subnet and returns the updated subnet
-        """
-        LOG.debug(_("QuantumPluginPLUMgrid Status: update_subnet() called"))
-        super(QuantumPluginPLUMgridV2, self).update_subnet(context, id, subnet)
-        # TODO: Update subnet in PLUMgrid NOS
-
-    def delete_subnet(self, context, id):
-        """
-        Deletes a subnet
-        """
-        LOG.debug(_("delete_subnet() called"))
-        super(QuantumPluginPLUMgridV2, self).delete_subnet(context, id)
-
     def network_admin_state(self, network):
-        net_name = network["network"]["name"]
-        if network["network"]["admin_state_up"] is False:
-            LOG.warning(_("Network with admin_state_up=False are not yet "
+        if network["network"].get("admin_state_up"):
+            network_name = network["network"]["name"]
+            if network["network"]["admin_state_up"] is False:
+                LOG.warning(_("Network with admin_state_up=False are not yet "
                           "supported by this plugin. Ignoring setting for "
-                          "network %s"), net_name)
+                          "network %s"), network_name)

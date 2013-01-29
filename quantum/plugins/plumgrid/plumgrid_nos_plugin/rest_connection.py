@@ -51,7 +51,7 @@ class RestConnection(object):
 
         LOG.debug(_("ServerProxy: server=%(server)s, port=%(port)d, "
                     "ssl=%(ssl)r, action=%(action)s"),
-            {'server': self.server, 'port': self.port, 'ssl': self.ssl,
+            {'server': self.server, 'port': self.port,
              'action': action})
         LOG.debug(_("ServerProxy: resource=%(resource)s, data=%(data)r, "
                     "headers=%(headers)r"), locals())
@@ -72,7 +72,8 @@ class RestConnection(object):
                 response, respstr, respdata)
             if response.status in self.success_codes:
                 try:
-                    respdata = json.loads(respstr)
+                    #respdata = json.loads(respstr)
+                    pass
                 except ValueError:
                     # response was not JSON, ignore the exception
                     pass
