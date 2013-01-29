@@ -16,7 +16,7 @@
 # @author: Edgar Magana, emagana@plumgrid.com, PLUMgrid, Inc.
 
 """
-Quantum PLUMgrid Plug-in for PLUM Virtual Technology
+Quantum PLUMgrid Plug-in for PLUMgrid Virtual Technology
 This plugin will forward authenticated REST API calls
 to the Network Operating System by PLUMgrid called NOS
 ...
@@ -27,6 +27,7 @@ from quantum.db import api as db
 from quantum.db import db_base_plugin_v2
 from quantum.openstack.common import cfg
 from quantum.openstack.common import log as logging
+from quantum.plugins.plumgrid.plumgrid_nos_plugin import rest_connection
 
 
 LOG = logging.getLogger(__name__)
@@ -61,16 +62,14 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         nospassword = cfg.CONF.PLUMgridNOS.password
         timeout = cfg.CONF.PLUMgridNOS.servertimeout
 
-
         # validate config
         LOG.info(_('QuantumPluginPLUMgrid PLUMgrid NOS: %s'), nosplumgrid)
         if not nosplumgrid:
             LOG.error(_('QuantumPluginPLUMgrid Status: NOS server is not '
                         'included in config file'))
 
-        LOG.debug(_('QuantumPluginPLUMgrid Status: Quantum server with PLUMgrid \
-            Plugin has started'))
-
+        LOG.debug(_('QuantumPluginPLUMgrid Status: Quantum server with '
+                    'PLUMgrid Plugin has started'))
 
     def create_network(self, context, network):
         """Create a network, which represents an L2 network segment which
@@ -101,10 +100,19 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         # create in DB
         net = super(QuantumPluginPLUMgridV2, self).create_network(context,
                                                                  net)
-        LOG.debug(_('QuantumPluginPLUMgrid Status: %s, %s, %s'), tenant_id, net_name, net["id"])
+        LOG.debug(_('QuantumPluginPLUMgrid Status: %s, %s, %s'),
+            tenant_id, net_name, net["id"])
 
         # TODO: Create the PLUMgrid NOS REST API call
-
+        data = {
+            "network": {
+                "id": new_net["id"],
+                "name": new_net["name"],
+                }
+        }
+        headers = {}
+        nos_url = 'NOS_URL'
+        rest_connection.nos_rest_conn(nos_url, 'POST', data, headers)
         # return created network
         return net
 
@@ -157,7 +165,6 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         super(QuantumPluginPLUMgridV2, self).delete_network(context,
                                                                      net_id)
 
-
     def create_port(self, context, port):
         """Create a port, which is a connection point of a device
         (e.g., a VM NIC) to attach to a L2 Quantum network.
@@ -184,7 +191,8 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
 
         # Update DB
         port["port"]["admin_state_up"] = False
-        new_port = super(QuantumPluginPLUMgridV2, self).create_port(context, port)
+        new_port = super(QuantumPluginPLUMgridV2, self).create_port(context,
+            port)
 
         # TODO: Create port on PLUMgrid NOS Container
 
@@ -193,7 +201,6 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         return super(QuantumPluginPLUMgridV2, self).update_port(context,
                                                            new_port["id"],
                                                            port_update)
-
 
     def update_port(self, context, port_id, port):
         """Update values of a port.
@@ -220,12 +227,13 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         LOG.debug(_("QuantumPluginPLUMgrid Status: update_port() called"))
 
         # Validate Args
-        orig_port = super(QuantumPluginPLUMgridV2, self).get_port(context, port_id)
+        orig_port = super(QuantumPluginPLUMgridV2, self).get_port(context,
+            port_id)
         if orig_port:
 
             # Update DB
-            new_port = super(QuantumPluginPLUMgridV2, self).update_port(context,
-                                                               port_id, port)
+            new_port = super(QuantumPluginPLUMgridV2, self).update_port(
+                context, port_id, port)
         # TODO: Update port on PLUMgrid NOS
 
         # return new_port
@@ -249,7 +257,6 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
 
         # TODO: Delete port from PLUMgrid NOS
 
-
     def create_subnet(self, context, subnet):
         """
         Create a subnet, which represents a range of IP addresses
@@ -258,7 +265,6 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         LOG.debug(_("create_subnet() called"))
         super(QuantumPluginPLUMgridV2, self).create_subnet(context, subnet)
         # TODO: Create subnet in PLUMgrid NOS
-
 
     def update_subnet(self, context, id, subnet):
         """
@@ -275,11 +281,9 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         LOG.debug(_("delete_subnet() called"))
         super(QuantumPluginPLUMgridV2, self).delete_subnet(context, id)
 
-
     def network_admin_state(self, network):
         net_name = network["network"]["name"]
         if network["network"]["admin_state_up"] is False:
             LOG.warning(_("Network with admin_state_up=False are not yet "
                           "supported by this plugin. Ignoring setting for "
                           "network %s"), net_name)
-
