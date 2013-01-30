@@ -14,6 +14,7 @@
 #    under the License.
 #
 # @author: Edgar Magana, emagana@plumgrid.com, PLUMgrid, Inc.
+# @author: Brenden Blanco, bblanco@plumgrid.com, PLUMgrid, Inc.
 
 """
 Quantum PLUMgrid Plug-in for PLUMgrid Virtual Technology
@@ -36,55 +37,56 @@ class RestConnection(object):
     """REST Connection to PLUMgrid NOS Server."""
 
     def __init__(self, server, port, timeout):
+        LOG.debug(_('QuantumPluginPLUMgrid Status: REST Connection Started'))
         self.server = server
         self.port = port
         self.timeout = timeout
 
     def nos_rest_conn(self, nos_url, action, data, headers):
-        uri = nos_url
-        body = json.dumps(data)
+        self.nos_url = nos_url
+        body_data = json.dumps(data)
         if not headers:
             headers = {}
         headers['Content-type'] = 'application/json'
         headers['Accept'] = 'application/json'
-        headers['QuantumProxy-Agent'] = self.name
 
-        LOG.debug(_("ServerProxy: server=%(server)s, port=%(port)d, "
-                    "ssl=%(ssl)r, action=%(action)s"),
-            {'server': self.server, 'port': self.port,
-             'action': action})
-        LOG.debug(_("ServerProxy: resource=%(resource)s, data=%(data)r, "
-                    "headers=%(headers)r"), locals())
+        LOG.debug(_("PLUMgrid_NOS_Server: %s %s %s"), self.server, self.port,
+             action)
 
         conn = httplib.HTTPConnection(
                 self.server, self.port, timeout=self.timeout)
         if conn is None:
-            LOG.error(_('ServerProxy: Could not establish HTTP '
+            LOG.error(_('PLUMgrid_NOS_Server: Could not establish HTTP '
                             'connection'))
             return None
 
         try:
-            conn.request(action, nos_url, body, headers)
-            response = conn.getresponse()
-            respstr = response.read()
-            respdata = respstr
-            LOG.debug(_("ServerProxy Connection Data: %s, %s, %s"),
-                response, respstr, respdata)
-            if response.status in self.success_codes:
+            LOG.debug(_("PLUMgrid_NOS_Server Sending Data: %s %s %s"),
+                nos_url, body_data, headers)
+            conn.request(action, nos_url, body_data, headers)
+            resp = conn.getresponse()
+            resp_str = resp.read()
+
+            LOG.debug(_("PLUMgrid_NOS_Server Connection Data: %s, %s"),
+                resp, resp_str)
+
+            if resp.status is 200:
                 try:
-                    #respdata = json.loads(respstr)
+                    respdata = json.loads(resp_str)
+                    LOG.debug(_("PLUMgrid_NOS_Server Connection RESP: %s"),
+                        respdata)
                     pass
                 except ValueError:
                     # response was not JSON, ignore the exception
                     pass
-            ret = (response.status, response.reason, respstr, respdata)
+            ret = (resp.status, resp.reason, resp_str)
         except urllib2.HTTPError, e:
-            LOG.error(_('ServerProxy: %(action)s failure, %(e)r'), locals())
+            LOG.error(_('PLUMgrid_NOS_Server: %(action)s failure, %(e)r'),
+                locals())
             ret = 0, None, None, None
         conn.close()
-        LOG.debug(_("ServerProxy: status=%(status)d, reason=%(reason)r, "
-                    "ret=%(ret)s, data=%(data)r"), {'status': ret[0],
-                                                    'reason': ret[1],
-                                                    'ret': ret[2],
-                                                    'data': ret[3]})
+        LOG.debug(_("PLUMgrid_NOS_Server: status=%(status)d, "
+            "reason=%(reason)r, ret=%(ret)s"),
+            {'status': ret[0], 'reason': ret[1], 'ret': ret[2]})
+
         return ret

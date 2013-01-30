@@ -31,7 +31,14 @@ class PLUMgridPluginV2TestCase(test_plugin.QuantumDbPluginV2TestCase):
                    'plumgrid_plugin.QuantumPluginPLUMgridV2')
 
     def setUp(self):
+
+        self.restHTTPConnection = patch('httplib.HTTPConnection')
+        self.restHTTPConnection.start()
         super(PLUMgridPluginV2TestCase, self).setUp(self._plugin_name)
+
+    def tearDown(self):
+        super(PLUMgridPluginV2TestCase, self).tearDown()
+        self.restHTTPConnection.stop()
 
 
 class TestPlumgridPluginV2HTTPResponse(test_plugin.TestV2HTTPResponse,

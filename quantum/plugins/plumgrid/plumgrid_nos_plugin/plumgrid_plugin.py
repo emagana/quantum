@@ -27,6 +27,8 @@ from quantum.db import api as db
 from quantum.db import db_base_plugin_v2
 from quantum.openstack.common import cfg
 from quantum.openstack.common import log as logging
+from quantum.plugins.plumgrid.common import exceptions as plum_excep
+from quantum.plugins.plumgrid.plumgrid_nos_plugin import plumgrid_nos_snippets
 from quantum.plugins.plumgrid.plumgrid_nos_plugin import rest_connection
 
 
@@ -34,18 +36,30 @@ LOG = logging.getLogger(__name__)
 
 
 nos_server_opts = [
-    cfg.StrOpt('nos_server', default='localhost:8080',
-               help=_("PLUMgrid NOS server to connect to")),
+    cfg.StrOpt('nos_server', default='localhost',
+        help=_("PLUMgrid NOS server to connect to")),
+    cfg.StrOpt('nos_server_port', default='8080',
+        help=_("PLUMgrid NOS server port to connect to")),
     cfg.StrOpt('username', default='username',
-               help=_("PLUMgrid NOS admin username")),
+        help=_("PLUMgrid NOS admin username")),
     cfg.StrOpt('password', default='password',
-               help=_("PLUMgrid NOS admin password")),
+        help=_("PLUMgrid NOS admin password")),
     cfg.IntOpt('servertimeout', default=5,
-               help=_("PLUMgrid NOS server timeout")),
-]
+        help=_("PLUMgrid NOS server timeout")),
+    ]
 
 
 cfg.CONF.register_opts(nos_server_opts, "PLUMgridNOS")
+# PLUMgrid NOS configuration
+nos_plumgrid = cfg.CONF.PLUMgridNOS.nos_server
+nos_port = cfg.CONF.PLUMgridNOS.nos_server_port
+timeout = cfg.CONF.PLUMgridNOS.servertimeout
+rest_conn = rest_connection.RestConnection(nos_plumgrid, nos_port, timeout)
+snippets = plumgrid_nos_snippets.dataNOSPLUMgrid()
+
+# TODO: (Edgar) These are placeholders for next PLUMgrid release
+nos_username = cfg.CONF.PLUMgridNOS.username
+nos_password = cfg.CONF.PLUMgridNOS.password
 
 
 class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
@@ -56,15 +70,9 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         # Plugin DB initialization
         db.configure_db()
 
-        # PLUMgrid NOS configuration
-        nosplumgrid = cfg.CONF.PLUMgridNOS.nos_server
-        nosusername = cfg.CONF.PLUMgridNOS.username
-        nospassword = cfg.CONF.PLUMgridNOS.password
-        timeout = cfg.CONF.PLUMgridNOS.servertimeout
-
         # PLUMgrid NOS info validation
-        LOG.info(_('QuantumPluginPLUMgrid PLUMgrid NOS: %s'), nosplumgrid)
-        if not nosplumgrid:
+        LOG.info(_('QuantumPluginPLUMgrid PLUMgrid NOS: %s'), nos_plumgrid)
+        if not nos_plumgrid:
             LOG.error(_('QuantumPluginPLUMgrid Status: NOS server is not '
                         'included in config file'))
 
@@ -77,29 +85,25 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         """
 
         LOG.debug(_('QuantumPluginPLUMgrid Status: create_network() called'))
-        #from pudb import set_trace; set_trace()
-        # Validate args
+
+        # Plugin DB - Network Create and validation
         tenant_id = self._get_tenant_id_for_create(context, network["network"])
         self.network_admin_state(network)
-
-        # Plugin DB - Network Create
         net = super(QuantumPluginPLUMgridV2, self).create_network(context,
-                                                                 network)
-        LOG.debug(_('QuantumPluginPLUMgrid Status: %s, %s, %s'),
-            tenant_id, network["network"], net["id"])
+            network)
 
-        # TODO: Create the PLUMgrid NOS REST API call
-        """
-        data = {
-            "network": {
-                "id": new_net["id"],
-                "name": new_net["name"],
-                }
-        }
-        headers = {}
-        nos_url = 'NOS_URL'
-        rest_connection.nos_rest_conn(nos_url, 'POST', data, headers)
-        """
+        try:
+            LOG.debug(_('QuantumPluginPLUMgrid Status: %s, %s, %s'),
+                tenant_id, network["network"], net["id"])
+            nos_url = snippets.BASE_NOS_URL + net["id"]
+            headers = {}
+            body_data = snippets.create_domain_body_data(tenant_id)
+            rest_conn.nos_rest_conn(nos_url, 'PUT', body_data, headers)
+
+        except Exception:
+            err_message = _("PLUMgrid NOS communication failed")
+            raise plum_excep.PLUMgridException(err_message)
+
         # return created network
         return net
 
@@ -110,12 +114,25 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
 
         LOG.debug(_("QuantumPluginPLUMgridV2.update_network() called"))
         self.network_admin_state(network)
+        tenant_id = self._get_tenant_id_for_create(context, network["network"])
 
         # Plugin DB - Network Update
         network_updated = super(QuantumPluginPLUMgridV2, self).update_network(
             context, net_id, network)
 
-        # TODO: Update network on network controller
+        try:
+            # PLUMgrid Server does not support updating resources yet
+            nos_url = snippets.BASE_NOS_URL + net_id
+            headers = {}
+            body_data = {}
+            rest_conn.nos_rest_conn(nos_url, 'DELETE', body_data, headers)
+            nos_url = snippets.BASE_NOS_URL + network_updated["id"]
+            body_data = snippets.create_domain_body_data(tenant_id)
+            rest_conn.nos_rest_conn(nos_url, 'PUT', body_data, headers)
+        except Exception:
+            err_message = _("PLUMgrid NOS communication failed")
+            raise plum_excep.PLUMgridException(err_message)
+
         # return updated network
         return network_updated
 
@@ -127,13 +144,19 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
 
         # TODO: Delete network on network controller
         net = super(QuantumPluginPLUMgridV2, self).get_network(context, net_id)
-        tenant_id = net["tenant_id"]
 
         # Plugin DB - Network Delete
-        result_from_net_delete = super(QuantumPluginPLUMgridV2,
+        net_deleted = super(QuantumPluginPLUMgridV2,
             self).delete_network(context, net_id)
 
-        return result_from_net_delete
+        try:
+            nos_url = snippets.BASE_NOS_URL + net_id
+            headers = {}
+            body_data = {}
+            rest_conn.nos_rest_conn(nos_url, 'DELETE', body_data, headers)
+        except Exception:
+            err_message = _("PLUMgrid NOS communication failed")
+            raise plum_excep.PLUMgridException(err_message)
 
     def create_port(self, context, port):
         """
@@ -146,7 +169,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         new_port = super(QuantumPluginPLUMgridV2, self).create_port(context,
             port)
 
-        # TODO: Create port on PLUMgrid NOS Container
+        # TODO: Create port on PLUMgrid NOS
 
         # Set port state up and return that port
         port_update = {"port": {"admin_state_up": True}}
@@ -167,6 +190,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
             # Plugin DB - Port Update
             new_port = super(QuantumPluginPLUMgridV2, self).update_port(
                 context, port_id, port)
+
         # TODO: Update port on PLUMgrid NOS
 
         # return new_port
@@ -184,10 +208,99 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
 
         # TODO: Delete port from PLUMgrid NOS
 
+    def create_subnet(self, context, subnet):
+        """
+        Create subnet core Quantum API
+        """
+
+        LOG.debug(_("QuantumPluginPLUMgrid Status: create_subnet() called"))
+        # Plugin DB - Subnet Delete
+        subnet = super(QuantumPluginPLUMgridV2, self).create_subnet(context,
+            subnet)
+        subnet_details = self._get_subnet(context, subnet["id"])
+        net_id = subnet_details["network_id"]
+        tenant_id = subnet_details["tenant_id"]
+        net = super(QuantumPluginPLUMgridV2, self).get_network(context,
+            net_id)
+        try:
+            nos_url = snippets.BASE_NOS_URL + net["id"]
+            headers = {}
+            body_data = snippets.create_network_body_data(tenant_id)
+            rest_conn.nos_rest_conn(nos_url, 'PUT', body_data, headers)
+        except Exception:
+            err_message = _("PLUMgrid NOS communication failed: ")
+            raise plum_excep.PLUMgridException()
+
+        return subnet
+
+    def delete_subnet(self, context, subnet_id):
+        """
+        Delete subnet core Quantum API
+        """
+
+        LOG.debug(_("QuantumPluginPLUMgrid Status: delete_subnet() called"))
+        #Collecting subnet info
+        subnet_details = self._get_subnet(context, subnet_id)
+
+        # Plugin DB - Subnet Delete
+        del_subnet = super(QuantumPluginPLUMgridV2, self).delete_subnet(
+            context, subnet_id)
+        try:
+            headers = {}
+            body_data = {}
+            net_id = subnet_details["network_id"]
+            self.cleaning_nos_subnet_structure(body_data, headers, net_id)
+        except Exception:
+            err_message = _("PLUMgrid NOS communication failed: ")
+            raise plum_excep.PLUMgridException()
+
+        return del_subnet
+
+    def update_subnet(self, context, subnet_id, subnet):
+        """
+        Update subnet core Quantum API
+        """
+
+        LOG.debug(_("update_subnet() called"))
+        #Collecting subnet info
+        subnet_details = self._get_subnet(context, subnet_id)
+        net_id = subnet_details["network_id"]
+        tenant_id = subnet_details["tenant_id"]
+        try:
+            # PLUMgrid Server does not support updating resources yet
+            headers = {}
+            body_data = {}
+            self.cleaning_nos_subnet_structure(body_data, headers, net_id)
+            nos_url = snippets.BASE_NOS_URL + net_id
+            body_data = snippets.create_network_body_data(tenant_id)
+            rest_conn.nos_rest_conn(nos_url, 'PUT', body_data, headers)
+
+        except Exception:
+            err_message = _("PLUMgrid NOS communication failed: ")
+            raise plum_excep.PLUMgridException(err_message)
+
+        return super(QuantumPluginPLUMgridV2, self).update_subnet(
+            context, subnet_id, subnet)
+
+    """
+    Extension API implementation
+    """
+    # TODO: (Edgar) Complete extensions for PLUMgrid
+
+    """
+    Internal PLUMgrid fuctions
+    """
+
+    def cleaning_nos_subnet_structure(self, body_data, headers, net_id):
+        domain_structure = ['/properties', '/link', '/ne']
+        for structure in domain_structure:
+            nos_url = snippets.BASE_NOS_URL + net_id + structure
+            rest_conn.nos_rest_conn(nos_url, 'DELETE', body_data, headers)
+
     def network_admin_state(self, network):
         if network["network"].get("admin_state_up"):
             network_name = network["network"]["name"]
             if network["network"]["admin_state_up"] is False:
                 LOG.warning(_("Network with admin_state_up=False are not yet "
-                          "supported by this plugin. Ignoring setting for "
-                          "network %s"), network_name)
+                              "supported by this plugin. Ignoring setting for "
+                              "network %s"), network_name)
