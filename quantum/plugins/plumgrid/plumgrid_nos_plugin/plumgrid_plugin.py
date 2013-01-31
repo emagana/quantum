@@ -30,6 +30,8 @@ from quantum.openstack.common import log as logging
 from quantum.plugins.plumgrid.common import exceptions as plum_excep
 from quantum.plugins.plumgrid.plumgrid_nos_plugin import plumgrid_nos_snippets
 from quantum.plugins.plumgrid.plumgrid_nos_plugin import rest_connection
+from quantum.plugins.plumgrid.plumgrid_nos_plugin.plumgrid_plugin_version \
+    import (VERSION)
 
 
 LOG = logging.getLogger(__name__)
@@ -290,6 +292,9 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
     """
     Internal PLUMgrid fuctions
     """
+
+    def get_plugin_version(self):
+        return VERSION
 
     def cleaning_nos_subnet_structure(self, body_data, headers, net_id):
         domain_structure = ['/properties', '/link', '/ne']
