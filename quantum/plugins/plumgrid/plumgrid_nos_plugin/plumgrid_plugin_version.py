@@ -16,4 +16,4 @@
 #
 # @author: Edgar Magana, emagana@plumgrid.com, PLUMgrid, Inc.
 
-VERSION = "0"
+VERSION = "0.1"

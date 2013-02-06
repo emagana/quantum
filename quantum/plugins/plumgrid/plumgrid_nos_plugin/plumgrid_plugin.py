@@ -143,9 +143,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         Delete network core Quantum API
         """
         LOG.debug(_("QuantumPluginPLUMgrid Status: delete_network() called"))
-
-        # TODO: Delete network on network controller
-        net = super(QuantumPluginPLUMgridV2, self).get_network(context, net_id)
+        super(QuantumPluginPLUMgridV2, self).get_network(context, net_id)
 
         # Plugin DB - Network Delete
         net_deleted = super(QuantumPluginPLUMgridV2,
@@ -171,7 +169,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         new_port = super(QuantumPluginPLUMgridV2, self).create_port(context,
             port)
 
-        # TODO: Create port on PLUMgrid NOS
+        # TODO: (Edgar) Create port on PLUMgrid NOS
 
         # Set port state up and return that port
         port_update = {"port": {"admin_state_up": True}}
@@ -193,7 +191,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
             new_port = super(QuantumPluginPLUMgridV2, self).update_port(
                 context, port_id, port)
 
-        # TODO: Update port on PLUMgrid NOS
+        # TODO: (Edgar) Update port on PLUMgrid NOS
 
         # return new_port
         return new_port
@@ -208,7 +206,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
         # Plugin DB - Port Delete
         super(QuantumPluginPLUMgridV2, self).delete_port(context, port_id)
 
-        # TODO: Delete port from PLUMgrid NOS
+        # TODO: (Edgar) Delete port from PLUMgrid NOS
 
     def create_subnet(self, context, subnet):
         """

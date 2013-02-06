@@ -88,5 +88,4 @@ class RestConnection(object):
         LOG.debug(_("PLUMgrid_NOS_Server: status=%(status)d, "
             "reason=%(reason)r, ret=%(ret)s"),
             {'status': ret[0], 'reason': ret[1], 'ret': ret[2]})
-
         return ret

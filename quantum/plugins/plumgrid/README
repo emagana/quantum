@@ -1,7 +1,7 @@
 PLUMgrid Quantum Virtual Network Plugin
 
 This plugin implements Quantum v2 APIs and helps configure
-topologies consisting of PLUMgrid Smart Edges switches.
+topologies consisting of PLUMgrid Platform.
 
 For more details on use please refer to:
 http://wiki.openstack.org/plumgrid-quantum
