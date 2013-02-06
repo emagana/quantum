@@ -231,7 +231,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
             rest_conn.nos_rest_conn(nos_url, 'PUT', body_data, headers)
         except Exception:
             err_message = _("PLUMgrid NOS communication failed: ")
-            raise plum_excep.PLUMgridException()
+            raise plum_excep.PLUMgridException(err_message)
 
         return subnet
 
@@ -254,7 +254,7 @@ class QuantumPluginPLUMgridV2(db_base_plugin_v2.QuantumDbPluginV2):
             self.cleaning_nos_subnet_structure(body_data, headers, net_id)
         except Exception:
             err_message = _("PLUMgrid NOS communication failed: ")
-            raise plum_excep.PLUMgridException()
+            raise plum_excep.PLUMgridException(err_message)
 
         return del_subnet
 

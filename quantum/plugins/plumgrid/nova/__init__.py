@@ -15,17 +15,3 @@
 #    under the License.
 #
 # @author: Edgar Magana, emagana@plumgrid.com, PLUMgrid, Inc.
-
-
-""" Quantum PLUMgrid Plugin exceptions """
-
-from quantum.common import exceptions as base_exec
-
-
-class PLUMgridException(base_exec.QuantumException):
-    message = _("An unexpected error occurred in the PLUMgrid Plugin:"
-                "%(err_msg)s")
-
-
-class PLUMgridConnectionFailed(PLUMgridException):
-    message = _("Connection failed with PLUMgrid NOS: %(err_msg)s")
